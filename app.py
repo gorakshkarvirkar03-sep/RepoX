@@ -1,3 +1,4 @@
+from modules.job_matching import render_job_matching_page
 from modules.dashboard import show_dashboard
 import streamlit as st
 from modules.github_client import get_repos
@@ -90,6 +91,7 @@ with st.sidebar:
         "Home",
         "Developer Dashboard",
         "Repositories",
+        "Job Matching",
         "AI Analysis"
     ]
     )
