@@ -38,10 +38,14 @@ def _new_repox_id():
 
 # ---------- Users ----------
 
-def create_user(full_name, email, password):
+def create_user(full_name, email, password, role="Student / Fresher"):
     """Returns (user_dict, None) on success or (None, error_message)."""
     email = email.strip().lower()
     db = get_client()
+
+    # Only these roles can self-register. Admin is set manually in Supabase.
+    if role not in ("Student / Fresher", "Recruiter"):
+        role = "Student / Fresher"
 
     existing = db.table("users").select("id").eq("email", email).execute()
     if existing.data:
@@ -50,12 +54,13 @@ def create_user(full_name, email, password):
     pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
     last_error = ""
-    for _ in range(5):  # retry in the rare case of a repox_id clash
+    for _ in range(5):
         try:
             res = db.table("users").insert({
                 "full_name": full_name.strip(),
                 "email": email,
                 "password_hash": pw_hash,
+                "role": role,
                 "repox_id": _new_repox_id(),
             }).execute()
             return _public(res.data[0]), None

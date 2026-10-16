@@ -1,21 +1,40 @@
 import streamlit as st
-# Demo credentials for Hackathon testing/judges
+from modules.db import create_user, verify_user, link_github
+
+# Demo credentials for Hackathon testing/judges (not stored in database)
 DEMO_USERS = {
     "Student / Fresher": {"email": "student@repox.ai", "password": "password123", "name": "Alex (Student)"},
     "Recruiter": {"email": "recruiter@techcorp.com", "password": "password123", "name": "Sarah (TechCorp HR)"},
     "Admin": {"email": "admin@repox.ai", "password": "admin123", "name": "System Admin"}
 }
 
+
 def init_auth_state():
     """Initialize session state variables for authentication."""
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "user_role" not in st.session_state:
-        st.session_state["user_role"] = None
-    if "user_email" not in st.session_state:
-        st.session_state["user_email"] = None
-    if "user_name" not in st.session_state:
-        st.session_state["user_name"] = None
+    defaults = {
+        "authenticated": False,
+        "user_role": None,
+        "user_email": None,
+        "user_name": None,
+        "user_id": None,
+        "repox_id": None,
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+def _start_session(user, role):
+    """Fill the session from a database user."""
+    st.session_state["authenticated"] = True
+    st.session_state["user_role"] = role
+    st.session_state["user_email"] = user["email"]
+    st.session_state["user_name"] = user["full_name"]
+    st.session_state["user_id"] = user["id"]
+    st.session_state["repox_id"] = user["repox_id"]
+    if user.get("github_username"):
+        st.session_state["username"] = user["github_username"]
+
 
 def logout():
     """Clear authentication state and log the user out."""
@@ -23,9 +42,12 @@ def logout():
     st.session_state["user_role"] = None
     st.session_state["user_email"] = None
     st.session_state["user_name"] = None
+    st.session_state["user_id"] = None
+    st.session_state["repox_id"] = None
     st.session_state["repos"] = []
     st.session_state["username"] = ""
     st.rerun()
+
 
 def login_page():
     """Render the login and sign-up UI."""
@@ -36,14 +58,12 @@ def login_page():
     </div>
     """, unsafe_allow_html=True)
 
-    # Center the login card on the screen
     col1, col2, col3 = st.columns([1, 1.3, 1])
 
     with col2:
         with st.container(border=True):
             st.subheader("🔐 Portal Login")
-            
-            # Role Selector
+
             role = st.selectbox(
                 "Select Your Role",
                 ["Student / Fresher", "Recruiter", "Admin"]
@@ -54,23 +74,35 @@ def login_page():
             # --- LOGIN TAB ---
             with tab_login:
                 with st.form("login_form"):
-                    email = st.text_input("Email Address", placeholder=DEMO_USERS[role]["email"])
+                    email = st.text_input("Email Address", placeholder="you@example.com")
                     password = st.text_input("Password", type="password", placeholder="••••••••")
                     submit = st.form_submit_button("Sign In", type="primary", use_container_width=True)
 
                     if submit:
                         if not email or not password:
                             st.warning("Please enter both email and password.")
-                        # Check Demo Credentials (or replace with Supabase check)
-                        elif email == DEMO_USERS[role]["email"] and password == DEMO_USERS[role]["password"]:
-                            st.session_state["authenticated"] = True
-                            st.session_state["user_role"] = role
-                            st.session_state["user_email"] = email
-                            st.session_state["user_name"] = DEMO_USERS[role]["name"]
-                            st.success(f"Welcome back, {DEMO_USERS[role]['name']}!")
-                            st.rerun()
                         else:
-                            st.error("Invalid credentials for the selected role.")
+                            try:
+                                user, err = verify_user(email, password)
+                            except Exception as e:
+                                user, err = None, f"Database error: {e}"
+
+                            if user:
+                                if user.get("role") != role:
+                                    st.error(f"This account is registered as '{user.get('role')}'. Please select that role.")
+                                else:
+                                    _start_session(user, role)
+                                    st.rerun()
+                            # Fallback: demo accounts (not in database)
+                            elif (email.strip().lower() == DEMO_USERS[role]["email"]
+                                  and password == DEMO_USERS[role]["password"]):
+                                st.session_state["authenticated"] = True
+                                st.session_state["user_role"] = role
+                                st.session_state["user_email"] = DEMO_USERS[role]["email"]
+                                st.session_state["user_name"] = DEMO_USERS[role]["name"]
+                                st.rerun()
+                            else:
+                                st.error(err or "Invalid credentials.")
 
                 # Hackathon Quick-Login Helper for Judges
                 st.divider()
@@ -90,25 +122,32 @@ def login_page():
                     with st.form("signup_form"):
                         new_name = st.text_input("Full Name", placeholder="John Doe")
                         new_email = st.text_input("Email Address", placeholder="you@example.com")
-                        
+
+                        github_handle = ""
                         if role == "Recruiter":
-                            company = st.text_input("Company Name", placeholder="Acme Inc.")
+                            st.text_input("Company Name", placeholder="Acme Inc.")
                         else:
                             github_handle = st.text_input("GitHub Username", placeholder="johndoe-dev")
 
-                        new_pass = st.text_input("Create Password", type="password")
+                        new_pass = st.text_input("Create Password (min 6 characters)", type="password")
                         signup_submit = st.form_submit_button("Create Account", type="primary", use_container_width=True)
 
                         if signup_submit:
                             if not new_name or not new_email or not new_pass:
                                 st.warning("Please fill in all fields.")
+                            elif len(new_pass) < 6:
+                                st.warning("Password must be at least 6 characters.")
                             else:
-                                # Auto-login after signup for smooth hackathon demo
-                                st.session_state["authenticated"] = True
-                                st.session_state["user_role"] = role
-                                st.session_state["user_email"] = new_email
-                                st.session_state["user_name"] = f"{new_name} ({role})"
-                                if role == "Student / Fresher" and github_handle:
-                                    st.session_state["username"] = github_handle
-                                st.success("Account created successfully!")
-                                st.rerun()
+                                try:
+                                    user, err = create_user(new_name, new_email, new_pass, role)
+                                except Exception as e:
+                                    user, err = None, f"Database error: {e}"
+
+                                if err:
+                                    st.error(err)
+                                else:
+                                    if github_handle.strip():
+                                        link_github(user["id"], github_handle.strip())
+                                        user["github_username"] = github_handle.strip()
+                                    _start_session(user, role)
+                                    st.rerun()
