@@ -5,6 +5,9 @@ from modules.github_client import get_repos
 from modules.auth import init_auth_state, login_page, logout
 from modules.ai_analyzer import render_ai_analysis_page
 
+def navigate_to(page_name):
+    st.session_state["navigation_radio"] = page_name
+
 # Page configuration
 st.set_page_config(
     page_title="RepoX | AI Developer Intelligence",
@@ -85,15 +88,16 @@ with st.sidebar:
     elif role == "Admin":
         nav_options = ["Admin Overview", "Manage Users", "System Analytics"]
 
+    if (
+        "navigation_radio" not in st.session_state
+        or st.session_state["navigation_radio"] not in nav_options
+    ):
+        st.session_state["navigation_radio"] = nav_options[0]
+
     page = st.radio(
-    "Navigation",
-    [
-        "Home",
-        "Developer Dashboard",
-        "Repositories",
-        "Job Matching",
-        "AI Analysis"
-    ]
+        "Navigation",
+        nav_options,
+        key="navigation_radio"
     )
 
     st.divider()
@@ -143,17 +147,24 @@ if role == "Student / Fresher":
         st.subheader("Explore RepoX Features")
 
         col1, col2 = st.columns(2)
+
         with col1:
-            st.info("📂 Repository Analysis")
-            st.write("Explore your GitHub projects.")
-            st.info("💼 Job Matching")
-            st.write("Discover relevant career opportunities.")
+            if st.button("📂 Repository Analysis", use_container_width=True):
+                st.session_state["selected_page"] = "Repositories"
+                st.rerun()
+
+            if st.button("💼 Job Matching", use_container_width=True):
+                st.session_state["selected_page"] = "Job Matching"
+                st.rerun()
 
         with col2:
-            st.info("🧠 AI Skill Analysis")
-            st.write("Understand your technical strengths.")
-            st.info("📈 Developer Progress")
-            st.write("Track your development journey.")
+            if st.button("🧠 AI Skill Analysis", use_container_width=True):
+                st.session_state["selected_page"] = "AI Analysis"
+                st.rerun()
+
+            if st.button("📈 Developer Progress", use_container_width=True):
+                st.session_state["selected_page"] = "Progress"
+                st.rerun()
 
     elif page == "Developer Dashboard":
         username = st.session_state.get("username")
