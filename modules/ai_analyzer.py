@@ -151,7 +151,7 @@ def render_ai_analysis_page():
                 names="Language",
                 values="Repositories",
                 hole=0.45,
-                color_discrete_sequence=px.colors.sequential.Indigo_r
+                color_discrete_sequence=px.colors.sequential.Purples_r
             )
             fig_donut.update_layout(margin=dict(t=20, b=20, l=10, r=10), height=320)
             st.plotly_chart(fig_donut, use_container_width=True)
