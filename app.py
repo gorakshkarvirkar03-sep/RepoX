@@ -1,3 +1,4 @@
+from modules.progress_tracker import render_progress_page
 from modules.job_matching import render_job_matching_page
 from modules.dashboard import show_dashboard
 import streamlit as st
@@ -192,8 +193,7 @@ if role == "Student / Fresher":
         render_job_matching_page()
 
     elif page == "Progress":
-        st.title("📈 Developer Progress")
-        st.info("Progress tracking module coming next.")
+        render_progress_page()
 
 
 # =========================================================
