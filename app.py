@@ -178,8 +178,7 @@ if role == "Student / Fresher":
         render_ai_analysis_page()
 
     elif page == "Job Matching":
-        st.title("💼 Job Matching")
-        st.info("Job discovery module coming next.")
+        render_job_matching_page()
 
     elif page == "Progress":
         st.title("📈 Developer Progress")
