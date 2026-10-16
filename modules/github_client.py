@@ -1,35 +1,22 @@
-import os
-import base64
+
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-HEADERS = {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
-BASE = "https://api.github.com"
-
 
 def get_repos(username):
-    r = requests.get(f"{BASE}/users/{username}/repos?per_page=100", headers=HEADERS)
-    r.raise_for_status()
-    return [repo for repo in r.json() if not repo["fork"]]
+    url = f"https://api.github.com/users/{username}/repos"
 
-
-def get_file_tree(username, repo, branch="main"):
-    r = requests.get(
-        f"{BASE}/repos/{username}/{repo}/git/trees/{branch}?recursive=1",
-        headers=HEADERS,
+    response = requests.get(
+        url,
+        params={"per_page": 100, "sort": "updated"},
+        headers={"Accept": "application/vnd.github+json"},
+        timeout=15
     )
-    r.raise_for_status()
-    return [f["path"] for f in r.json()["tree"] if f["type"] == "blob"]
 
+    if response.status_code == 404:
+        raise Exception("GitHub username not found.")
 
-def get_file_content(username, repo, path):
-    r = requests.get(f"{BASE}/repos/{username}/{repo}/contents/{path}", headers=HEADERS)
-    r.raise_for_status()
-    return base64.b64decode(r.json()["content"]).decode("utf-8", errors="ignore")
+    if response.status_code != 200:
+        raise Exception(
+            f"GitHub API error: {response.status_code}"
+        )
 
-
-def get_commits(username, repo):
-    r = requests.get(f"{BASE}/repos/{username}/{repo}/commits?per_page=10", headers=HEADERS)
-    r.raise_for_status()
-    return r.json()
+    return response.json()
