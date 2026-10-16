@@ -123,3 +123,41 @@ def get_latest_analysis(user_id):
            .eq("user_id", user_id)
            .order("created_at", desc=True).limit(1).execute())
     return res.data[0] if res.data else None
+
+
+# ---------- Candidate profile (for recruiters) ----------
+
+def build_snapshot(repos):
+    """Turn the GitHub repo list into a small summary to store."""
+    from collections import Counter
+    langs = Counter(r.get("language") for r in repos if r.get("language"))
+    top = sorted(repos, key=lambda r: r.get("stargazers_count", 0), reverse=True)[:6]
+    return {
+        "total_repos": len(repos),
+        "total_stars": sum(r.get("stargazers_count", 0) for r in repos),
+        "languages": dict(langs.most_common()),
+        "top_repos": [
+            {
+                "name": r.get("name"),
+                "language": r.get("language"),
+                "stars": r.get("stargazers_count", 0),
+                "description": r.get("description"),
+                "url": r.get("html_url"),
+            }
+            for r in top
+        ],
+    }
+
+
+def find_candidate(repox_id):
+    """Returns (profile, None) or (None, error_message)."""
+    res = (get_client().table("users")
+           .select("id, full_name, github_username, repox_id, recruiter_consent, role")
+           .eq("repox_id", repox_id.strip().upper())
+           .eq("role", "Student / Fresher").execute())
+    if not res.data:
+        return None, "No candidate found with this RepoX ID."
+    user = res.data[0]
+    if not user["recruiter_consent"]:
+        return None, "This candidate has not allowed recruiters to view their profile."
+    return {"user": user, "analysis": get_latest_analysis(user["id"])}, None

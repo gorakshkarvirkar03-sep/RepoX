@@ -32,6 +32,7 @@ def _start_session(user, role):
     st.session_state["user_name"] = user["full_name"]
     st.session_state["user_id"] = user["id"]
     st.session_state["repox_id"] = user["repox_id"]
+    st.session_state["recruiter_consent"] = user.get("recruiter_consent", False)
     if user.get("github_username"):
         st.session_state["username"] = user["github_username"]
 

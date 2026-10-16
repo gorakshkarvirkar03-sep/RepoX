@@ -5,6 +5,7 @@ import streamlit as st
 from modules.github_client import get_repos
 from modules.auth import init_auth_state, login_page, logout
 from modules.ai_analyzer import render_ai_analysis_page
+from modules.db import save_analysis, link_github, build_snapshot, find_candidate, set_recruiter_consent
 
 def navigate_to(page_name):
     st.session_state["navigation_radio"] = page_name
@@ -74,11 +75,23 @@ role = st.session_state["user_role"]
 with st.sidebar:
     st.title("🚀 RepoX")
     st.caption("AI Developer Intelligence")
-    
+
     # User Profile Badge
     st.markdown(f'<div class="role-badge">👤 {role}</div>', unsafe_allow_html=True)
     st.write(f"**{st.session_state['user_name']}**")
     st.caption(st.session_state["user_email"])
+
+    # RepoX ID + recruiter consent switch (real accounts only)
+    if role == "Student / Fresher" and st.session_state.get("user_id"):
+        st.markdown(f"**RepoX ID:** `{st.session_state['repox_id']}`")
+        allow = st.toggle(
+            "Let recruiters view my profile",
+            value=st.session_state.get("recruiter_consent", False),
+        )
+        if allow != st.session_state.get("recruiter_consent", False):
+            set_recruiter_consent(st.session_state["user_id"], allow)
+            st.session_state["recruiter_consent"] = allow
+
     st.divider()
 
     # Role-based navigation Menu
@@ -108,7 +121,7 @@ with st.sidebar:
 
 
 # =========================================================
-# STUDENT / FRESHER VIEWS (Your Original Home Page & Tabs)
+# STUDENT / FRESHER VIEWS
 # =========================================================
 if role == "Student / Fresher":
     if page == "Home":
@@ -141,6 +154,14 @@ if role == "Student / Fresher":
                         st.session_state["repos"] = repos
                         st.session_state["username"] = username.strip()
                         st.success("GitHub profile connected!")
+
+                        # Save summary to the database for recruiters
+                        if st.session_state.get("user_id"):
+                            try:
+                                link_github(st.session_state["user_id"], username.strip())
+                                save_analysis(st.session_state["user_id"], build_snapshot(repos))
+                            except Exception as db_err:
+                                st.warning(f"Profile could not be saved: {db_err}")
                     except Exception as e:
                         st.error(f"Error: {e}")
 
@@ -170,7 +191,7 @@ if role == "Student / Fresher":
     elif page == "Developer Dashboard":
         username = st.session_state.get("username")
         repos = st.session_state.get("repos", [])
-        show_dashboard(username, repos)        
+        show_dashboard(username, repos)
 
     elif page == "Repositories":
         st.title("📂 Your GitHub Repositories")
@@ -204,6 +225,55 @@ elif role == "Recruiter":
         st.title("🔎 Search & Evaluate Developer Talent")
         st.caption("Discover verified fresher profiles and evaluate their public GitHub repositories.")
 
+        # ---------- Search by RepoX ID ----------
+        st.subheader("🆔 Search by RepoX ID")
+        rid = st.text_input("RepoX ID", placeholder="e.g. RX-AB12CD")
+        if st.button("Find Candidate", type="primary", key="find_by_id"):
+            if not rid.strip():
+                st.warning("Please enter a RepoX ID.")
+            else:
+                found, err = find_candidate(rid)
+                if err:
+                    st.session_state["found_candidate"] = None
+                    st.error(err)
+                else:
+                    st.session_state["found_candidate"] = found
+
+        found = st.session_state.get("found_candidate")
+        if found:
+            u = found["user"]
+            a = found["analysis"]
+            with st.container(border=True):
+                st.subheader(u["full_name"])
+                st.caption(f"RepoX ID: {u['repox_id']}  |  GitHub: @{u['github_username'] or 'not linked'}")
+                if not a:
+                    st.info("This candidate has not analyzed their GitHub yet.")
+                else:
+                    s = a.get("skills") or {}
+                    st.caption(f"Last analyzed: {a['created_at'][:10]}")
+                    m1, m2 = st.columns(2)
+                    m1.metric("Repositories built", s.get("total_repos", 0))
+                    m2.metric("Total GitHub stars", s.get("total_stars", 0))
+
+                    langs = s.get("languages", {})
+                    if langs:
+                        st.markdown("**Skills (from GitHub languages)**")
+                        st.write(" ".join(f"`{l}`" for l in langs))
+                        st.bar_chart(langs)
+
+                    st.markdown("**Top repositories**")
+                    for r in s.get("top_repos", []):
+                        with st.container(border=True):
+                            st.markdown(f"**{r['name']}**  ·  {r.get('language') or 'Unknown'}  ·  ⭐ {r['stars']}")
+                            if r.get("description"):
+                                st.write(r["description"])
+                            if r.get("url"):
+                                st.markdown(f"[View on GitHub]({r['url']})")
+
+        st.divider()
+
+        # ---------- Search by GitHub username ----------
+        st.subheader("🔎 Search by GitHub Username")
         col1, col2 = st.columns([3, 1])
         with col1:
             candidate_gh = st.text_input("Enter Candidate GitHub Username", placeholder="e.g., torvalds or octocat")
@@ -221,11 +291,11 @@ elif role == "Recruiter":
                         c_repos = get_repos(candidate_gh.strip())
                         if c_repos:
                             st.success(f"Successfully loaded {len(c_repos)} repositories for **@{candidate_gh.strip()}**")
-                            
+
                             # Quick stats preview for the recruiter
                             total_stars = sum(r.get("stargazers_count", 0) for r in c_repos)
                             languages = [r.get("language") for r in c_repos if r.get("language")]
-                            
+
                             rc1, rc2 = st.columns(2)
                             rc1.metric("Total Public Repos", len(c_repos))
                             rc2.metric("Total GitHub Stars", total_stars)
