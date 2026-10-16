@@ -1,3 +1,4 @@
+from modules.dashboard import show_dashboard
 import streamlit as st
 from modules.github_client import get_repos
 from modules.auth import init_auth_state, login_page, logout
@@ -83,7 +84,15 @@ with st.sidebar:
     elif role == "Admin":
         nav_options = ["Admin Overview", "Manage Users", "System Analytics"]
 
-    page = st.radio("Navigation", nav_options)
+    page = st.radio(
+    "Navigation",
+    [
+        "Home",
+        "Developer Dashboard",
+        "Repositories",
+        "AI Analysis"
+    ]
+    )
 
     st.divider()
     if st.button("🚪 Logout", use_container_width=True):
@@ -143,6 +152,11 @@ if role == "Student / Fresher":
             st.write("Understand your technical strengths.")
             st.info("📈 Developer Progress")
             st.write("Track your development journey.")
+
+    elif page == "Developer Dashboard":
+        username = st.session_state.get("username")
+        repos = st.session_state.get("repos", [])
+        show_dashboard(username, repos)        
 
     elif page == "Repositories":
         st.title("📂 Your GitHub Repositories")
