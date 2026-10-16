@@ -1,6 +1,7 @@
 import streamlit as st
 from modules.github_client import get_repos
 from modules.auth import init_auth_state, login_page, logout
+from modules.ai_analyzer import render_ai_analysis_page
 
 # Page configuration
 st.set_page_config(
@@ -158,8 +159,7 @@ if role == "Student / Fresher":
                     st.write("⭐ Stars:", repo.get("stargazers_count", 0))
 
     elif page == "AI Analysis":
-        st.title("🧠 AI Skill Analysis")
-        st.info("AI analysis module coming next.")
+        render_ai_analysis_page()
 
     elif page == "Job Matching":
         st.title("💼 Job Matching")
