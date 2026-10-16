@@ -81,11 +81,11 @@ with st.sidebar:
     st.caption(st.session_state["user_email"])
     st.divider()
 
-    # Role-based Navigation Menu
+    # Role-based navigation Menu
     if role == "Student / Fresher":
         nav_options = ["Home", "Repositories", "AI Analysis", "Job Matching", "Progress"]
     elif role == "Recruiter":
-        nav_options = ["Recruiter Dashboard", "Candidate Search", "Post a Job", "AI Shortlisting"]
+        nav_options = ["Candidate Search"]
     elif role == "Admin":
         nav_options = ["Admin Overview", "Manage Users", "System Analytics"]
 
@@ -200,29 +200,47 @@ if role == "Student / Fresher":
 # RECRUITER VIEWS
 # =========================================================
 elif role == "Recruiter":
-    if page == "Recruiter Dashboard":
-        st.title("🏢 Recruiter Dashboard")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Verified Developers", "1,240", "+18% this week")
-        col2.metric("Active Job Postings", "4", "2 closing soon")
-        col3.metric("AI-Matched Candidates", "38", "Top 5% skill match")
+    if page == "Candidate Search":
+        st.title("🔎 Search & Evaluate Developer Talent")
+        st.caption("Discover verified fresher profiles and evaluate their public GitHub repositories.")
 
-    elif page == "Candidate Search":
-        st.title("🔎 Search Developer Talent")
-        skill_query = st.text_input("Filter by Tech Stack / Language (e.g., Python, React, PyTorch)")
-        st.info("Candidate talent pool integration coming next.")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            candidate_gh = st.text_input("Enter Candidate GitHub Username", placeholder="e.g., torvalds or octocat")
+        with col2:
+            st.write("")
+            st.write("")
+            search_btn = st.button("Analyze Candidate", type="primary", use_container_width=True)
 
-    elif page == "Post a Job":
-        st.title("📢 Post a Job Opportunity")
-        with st.form("job_post"):
-            st.text_input("Job Title", placeholder="Junior AI Engineer")
-            st.text_area("Required Skills & GitHub Signals")
-            st.form_submit_button("Publish Job", type="primary")
+        if search_btn:
+            if not candidate_gh.strip():
+                st.warning("Please enter a valid GitHub username.")
+            else:
+                with st.spinner(f"Fetching public repositories for @{candidate_gh.strip()}..."):
+                    try:
+                        c_repos = get_repos(candidate_gh.strip())
+                        if c_repos:
+                            st.success(f"Successfully loaded {len(c_repos)} repositories for **@{candidate_gh.strip()}**")
+                            
+                            # Quick stats preview for the recruiter
+                            total_stars = sum(r.get("stargazers_count", 0) for r in c_repos)
+                            languages = [r.get("language") for r in c_repos if r.get("language")]
+                            
+                            rc1, rc2 = st.columns(2)
+                            rc1.metric("Total Public Repos", len(c_repos))
+                            rc2.metric("Total GitHub Stars", total_stars)
 
-    elif page == "AI Shortlisting":
-        st.title("🤖 AI GitHub Shortlisting")
-        st.info("Automated repository evaluation for applicants coming next.")
-
+                            st.subheader("📁 Repository Highlights")
+                            for r in c_repos[:6]:
+                                with st.container(border=True):
+                                    st.markdown(f"**{r.get('name', 'Unnamed')}**")
+                                    st.caption(f"Language: {r.get('language') or 'Unknown'} | ⭐ Stars: {r.get('stargazers_count', 0)}")
+                                    if r.get("description"):
+                                        st.write(r.get("description"))
+                        else:
+                            st.info("No public repositories found for this username.")
+                    except Exception as e:
+                        st.error(f"Error fetching candidate profile: {e}")
 
 # =========================================================
 # ADMIN VIEWS
