@@ -1,3 +1,5 @@
+from modules.live_jobs import render_live_jobs_page
+from modules.skill_roadmap import render_skill_roadmap_page
 from modules.progress_tracker import render_progress_page
 from modules.job_matching import render_job_matching_page
 from modules.dashboard import show_dashboard
@@ -109,7 +111,7 @@ with st.sidebar:
 
     # Role-based navigation Menu
     if role == "Student / Fresher":
-        nav_options = ["Home", "Repositories", "AI Analysis", "Job Matching", "Progress"]
+        nav_options = ["Home", "Repositories", "AI Analysis", "Skill Roadmap", "Live Jobs", "Job Matching", "Progress"]
     elif role == "Recruiter":
         nav_options = ["Candidate Search"]
     elif role == "Admin":
@@ -222,6 +224,12 @@ if role == "Student / Fresher":
 
     elif page == "AI Analysis":
         render_ai_analysis_page()
+
+    elif page == "Skill Roadmap":
+        render_skill_roadmap_page()
+
+    elif page == "Live Jobs":
+        render_live_jobs_page()
 
     elif page == "Job Matching":
         render_job_matching_page()

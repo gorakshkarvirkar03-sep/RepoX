@@ -178,3 +178,21 @@ def find_candidate(repox_id):
     if not user["recruiter_consent"]:
         return None, "This candidate has not allowed recruiters to view their profile."
     return {"user": user, "analysis": get_latest_analysis(user["id"])}, None
+
+# ---------- Skill roadmaps ----------
+
+def save_roadmap(user_id, target_role, strong, missing, roadmap):
+    get_client().table("roadmaps").insert({
+        "user_id": user_id,
+        "target_role": target_role,
+        "strong_skills": strong,
+        "missing_skills": missing,
+        "roadmap": roadmap,
+    }).execute()
+
+
+def get_latest_roadmap(user_id, target_role):
+    res = (get_client().table("roadmaps").select("*")
+           .eq("user_id", user_id).eq("target_role", target_role)
+           .order("created_at", desc=True).limit(1).execute())
+    return res.data[0] if res.data else None
