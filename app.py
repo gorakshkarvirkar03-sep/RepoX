@@ -5,7 +5,7 @@ import streamlit as st
 from modules.github_client import get_repos
 from modules.auth import init_auth_state, login_page, logout
 from modules.ai_analyzer import render_ai_analysis_page
-from modules.db import save_analysis, link_github, build_snapshot, find_candidate, set_recruiter_consent
+from modules.db import save_analysis, link_github, build_snapshot, find_candidate, set_recruiter_consent, refresh_if_changed
 
 def navigate_to(page_name):
     st.session_state["navigation_radio"] = page_name
@@ -71,6 +71,19 @@ if not st.session_state["authenticated"]:
 # 2. IF LOGGED IN -> SHOW ROLE-BASED SIDEBAR & CONTENT
 # ---------------------------------------------------------
 role = st.session_state["user_role"]
+
+# Auto-refresh profile from GitHub once per login session
+if (role == "Student / Fresher" and st.session_state.get("user_id")
+        and st.session_state.get("username")
+        and not st.session_state.get("auto_synced")):
+    st.session_state["auto_synced"] = True
+    try:
+        _repos = get_repos(st.session_state["username"])
+        st.session_state["repos"] = _repos
+        if refresh_if_changed(st.session_state["user_id"], _repos):
+            st.toast("🔄 New GitHub activity found. Your RepoX profile was updated!")
+    except Exception:
+        pass
 
 with st.sidebar:
     st.title("🚀 RepoX")

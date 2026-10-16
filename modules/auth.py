@@ -47,6 +47,7 @@ def logout():
     st.session_state["repox_id"] = None
     st.session_state["repos"] = []
     st.session_state["username"] = ""
+    st.session_state["auto_synced"] = False
     st.rerun()
 
 

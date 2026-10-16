@@ -135,6 +135,7 @@ def build_snapshot(repos):
     return {
         "total_repos": len(repos),
         "total_stars": sum(r.get("stargazers_count", 0) for r in repos),
+        "last_push": max((r.get("pushed_at") or "" for r in repos), default=""),
         "languages": dict(langs.most_common()),
         "top_repos": [
             {
@@ -147,6 +148,22 @@ def build_snapshot(repos):
             for r in top
         ],
     }
+
+
+def _fingerprint(s):
+    return (s.get("total_repos"), s.get("total_stars"),
+            s.get("last_push"), s.get("languages"))
+
+
+def refresh_if_changed(user_id, repos):
+    """Save a new snapshot only if GitHub activity changed. Returns True if updated."""
+    new = build_snapshot(repos)
+    latest = get_latest_analysis(user_id)
+    old = (latest or {}).get("skills") or {}
+    if latest and _fingerprint(old) == _fingerprint(new):
+        return False
+    save_analysis(user_id, new)
+    return True
 
 
 def find_candidate(repox_id):
